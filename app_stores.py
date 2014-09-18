@@ -4,7 +4,15 @@
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime
+from flask import Flask
 from flask.ext.sqlalchemy import SQLAlchemy
+
+app = Flask(__name__)
+#app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/test20.db'
+#app.config['SQLALCHEMY_ECHO'] = True # prints interactions w the db
+db = SQLAlchemy(app)
+
+db.create_all()
 
 charts = {
 	'Top Free in Android Apps': 'https://play.google.com/store/apps/collection/topselling_free',
@@ -14,62 +22,70 @@ charts = {
 	'Top Paid in Games': 'https://play.google.com/store/apps/category/GAME/collection/topselling_paid',
 	'Top Grossing Games': 'https://play.google.com/store/apps/category/GAME/collection/topgrossing'}
 
-#results = {}
+class App(db.Model):
+	id = db.Column(db.Integer, primary_key=True)
+	rank = db.Column(db.Integer)
+	stars = db.Column(db.Numeric(2,1, asdecimal = False))
+	price = db.Column(db.Numeric(6,2, asdecimal = False))
+	description = db.Column(db.String(80))
+	title = db.Column(db.String(80))
+	chart = db.Column(db.String(80))
+	timestamp = db.Column(db.DateTime, unique = True) # tried to make this primary key, but Ashish said Flask or SQLAlchemy doesn't like that
 
-db = SQLAlchemy(app)
+	def __init__(self, rank, stars, price, description, title, chart, timestamp):
+		self.rank = rank
+		self.stars = stars
+		self.price = price
+		self.description = description
+		self.title = title
+		self.chart = chart
+		self.timestamp = timestamp
 
-for chart_name in charts.keys():
-	r = requests.get(charts[chart_name])
-	soup = BeautifulSoup(r.content, 'html.parser') # lxml is not lenient enough; haven't tried html5lib
+	def __repr__(self):
+	    return '<{}>'.format(self.timestamp)
 
-	counter = 0
+def google_play():
+	for chart_name in charts.keys()[:1]:
+		r = requests.get(charts[chart_name])
+		soup = BeautifulSoup(r.content, 'html.parser') # lxml is not lenient enough; haven't tried html5lib
 
-	for app in soup.find_all(class_= "card no-rationale square-cover apps small"):
-		counter += 1
-		title = app.find(class_ = 'title')['title']
-		price = unicode(app.find(class_ = 'price buy').span.string)
+		counter = 0
 
-		if price == u'Free':
-			price = float(0)
-		else:
-			price = float(price[1:])
+		for app in soup.find_all(class_= "card no-rationale square-cover apps small"):
+			counter += 1
+			print counter
+			price = unicode(app.find(class_ = 'price buy').span.string)
 
-		"""results[datetime.now()] = {
-			'rank': counter,
-			'stars': float(app.find(class_ = 'reason-set-star-rating').contents[1]['aria-label'][7:10]),
-			'price': price,
-			'description': unicode(app.find(class_ = 'description')), # messy, contains HTML tags
-			'title': title,
-			'chart': chart_name}"""
+			if price == u'Free':
+				price = float(0)
+			else:
+				price = float(price[1:])
 
-		db_entry = Search(
-			counter, 
-			float(app.find(class_ = 'reason-set-star-rating').contents[1]['aria-label'][7:10]), 
-			price, 
-			unicode(app.find(class_ = 'description')), 
-			title, 
-			chart_name)
+			db_entry = App(
+				counter, 
+				float(app.find(class_ = 'reason-set-star-rating').contents[1]['aria-label'][7:10]), 
+				price, 
+				unicode(app.find(class_ = 'description')), 
+				app.find(class_ = 'title')['title'], 
+				chart_name,
+				datetime.now())
 
-		db.session.add(db_entry)
-		db.session.commit()	
+			db.session.add(db_entry)
+			db.session.commit()
 
-class PutIntoDB(db.Model):
-	def __init__(self, rank, stars, price, description, title, chart, datetime):
-		self.rank = db.Column(db.Integer)
-		self.stars = db.Column(db.Decimal(2,1))
-		self.price = db.Column(db.Decimal(6,2))
-		self.description = db.Column(db.String(80))
-		self.title = db.Column(db.String(80))
-		self.chart = db.Column(db.String(80))
-		self.datetime = db.Column(db.DateTime, primary_key = True)
+	print App.query.all()
 
-def turn_into_csv(results):
-	import pandas as pd
+def test():
+	db_entry = App(
+		123, 
+		4.5, 
+		4.50, 
+		'some description', 
+		'soem title', 
+		'chart_name',
+		datetime.now())
 
-	df = pd.DataFrame(results).T
-	df.index.name = 'datetime'
-	df = df.reset_index()
+	db.session.add(db_entry)
+	db.session.commit()
 
-	df.drop(['description'], axis=1).to_csv('results.csv', encoding = 'utf-8', index = False, date_format = '%Y-%m-%d')
-
-#turn_into_csv(results)
+	print App.query.all()
