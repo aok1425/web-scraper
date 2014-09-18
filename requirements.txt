@@ -3,3 +3,4 @@ gunicorn==18.0
 requests==2.2.1
 SQLAlchemy==0.9.4
 Flask-SQLAlchemy==1.0
+beautifulsoup4==4.3.1
