@@ -33,6 +33,7 @@ class App(db.Model):
 	title = db.Column(db.String(80))
 	chart = db.Column(db.String(80))
 	timestamp = db.Column(db.DateTime) # tried to make this primary key, but Ashish said Flask or SQLAlchemy doesn't like that
+	store = db.Column(db.String(80))
 
 	def __init__(self, rank, stars, price, description, title, chart, timestamp):
 		self.rank = rank
@@ -42,12 +43,13 @@ class App(db.Model):
 		self.title = title
 		self.chart = chart
 		self.timestamp = timestamp
+		self.store = store
 
 	def __repr__(self):
 	    return '<{}>'.format(self.timestamp)
 
 def google_play():
-	for chart_name in charts.keys()[:1]:
+	for chart_name in charts.keys():
 		r = requests.get(charts[chart_name])
 		soup = BeautifulSoup(r.content, 'html.parser') # lxml is not lenient enough; haven't tried html5lib
 
@@ -70,7 +72,8 @@ def google_play():
 				unicode(app.find(class_ = 'description')), 
 				app.find(class_ = 'title')['title'], 
 				chart_name,
-				datetime.now())
+				datetime.now(),
+				'Google Play')
 
 			db.session.add(db_entry)
 			db.session.commit()
@@ -85,7 +88,8 @@ def test():
 		'some description', 
 		'soem title', 
 		'chart_name',
-		datetime.now())
+		datetime.now(),
+		'Google Play')
 
 	db.session.add(db_entry)
 	db.session.commit()
