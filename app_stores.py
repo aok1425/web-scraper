@@ -6,9 +6,11 @@ from bs4 import BeautifulSoup
 from datetime import datetime
 from flask import Flask
 from flask.ext.sqlalchemy import SQLAlchemy
+import os
 
 app = Flask(__name__)
 #app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/test20.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ['DATABASE_URL']
 #app.config['SQLALCHEMY_ECHO'] = True # prints interactions w the db
 db = SQLAlchemy(app)
 
@@ -30,7 +32,7 @@ class App(db.Model):
 	description = db.Column(db.String(80))
 	title = db.Column(db.String(80))
 	chart = db.Column(db.String(80))
-	timestamp = db.Column(db.DateTime, unique = True) # tried to make this primary key, but Ashish said Flask or SQLAlchemy doesn't like that
+	timestamp = db.Column(db.DateTime) # tried to make this primary key, but Ashish said Flask or SQLAlchemy doesn't like that
 
 	def __init__(self, rank, stars, price, description, title, chart, timestamp):
 		self.rank = rank
