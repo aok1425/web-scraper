@@ -35,7 +35,7 @@ class App(db.Model):
 	timestamp = db.Column(db.DateTime) # tried to make this primary key, but Ashish said Flask or SQLAlchemy doesn't like that
 	store = db.Column(db.String(80))
 
-	def __init__(self, rank, stars, price, description, title, chart, timestamp):
+	def __init__(self, rank, stars, price, description, title, chart, timestamp, store):
 		self.rank = rank
 		self.stars = stars
 		self.price = price
