@@ -14,7 +14,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = os.environ['DATABASE_URL']
 #app.config['SQLALCHEMY_ECHO'] = True # prints interactions w the db
 db = SQLAlchemy(app)
 
-db.create_all()
+#db.create_all()
 
 charts = {
 	'Top Free in Android Apps': 'https://play.google.com/store/apps/collection/topselling_free',
@@ -29,7 +29,7 @@ class App(db.Model):
 	rank = db.Column(db.Integer)
 	stars = db.Column(db.Numeric(2,1, asdecimal = False))
 	price = db.Column(db.Numeric(6,2, asdecimal = False))
-	description = db.Column(db.String(80))
+	description = db.Column(db.Text)
 	title = db.Column(db.String(80))
 	chart = db.Column(db.String(80))
 	timestamp = db.Column(db.DateTime) # tried to make this primary key, but Ashish said Flask or SQLAlchemy doesn't like that
