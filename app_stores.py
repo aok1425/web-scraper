@@ -46,39 +46,6 @@ class App(db.Model):
 	def __repr__(self):
 	    return '<{}>'.format(self.timestamp)
 
-def google_play():
-	for chart_name in charts.keys():
-		r = requests.get(charts[chart_name])
-		soup = BeautifulSoup(r.content, 'html.parser') # lxml is not lenient enough; haven't tried html5lib
-
-		counter = 0
-
-		for app in soup.find_all(class_= "card no-rationale square-cover apps small"):
-			counter += 1
-			print counter
-			price = unicode(app.find(class_ = 'price buy').span.string)
-
-			if price == u'Free':
-				price = float(0)
-			elif price == None:
-				pass
-			else:
-				price = float(price[1:])
-
-			db_entry = App(
-				counter, 
-				float(app.find(class_ = 'reason-set-star-rating').contents[1]['aria-label'][7:10]), 
-				price, 
-				unicode(app.find(class_ = 'description')), 
-				app.find(class_ = 'title')['title'], 
-				chart_name,
-				datetime.now(),
-				'Google Play')
-
-			db.session.add(db_entry)
-	
-	db.session.commit()
-
 def test():
 	db_entry = App(
 		123, 
@@ -95,42 +62,94 @@ def test():
 
 	print App.query.all()
 
-# could also make a decorated fn
-# or make arguments ('if german, inject this code')
-def german_google_play():
-	for chart_name in charts.keys():
+class USGooglePlay(object):
+	def __init__(self):
+		self.url_start = ''
+		self.store_name = 'Google Play US'
+
+	def get_stars(self, app):
+		return float(app.find(class_ = 'reason-set-star-rating').contents[1]['aria-label'][7:10])
+
+	def transform_price(self, price):
+		if price == u'Free' or price == u'None':
+			return float(0)
+		else:
+			temp = price.split(',')
+			return float(price[1:])
+
+	def open_site(self, chart_name):
 		browser = RoboBrowser(history=True, parser='html.parser')
-		browser.open('http://ciproxy.de/browse.php?u=' + charts[chart_name])
+		browser.open(self.url_start + charts[chart_name])
+		return browser
+
+	def run(self):
+		for chart_name in charts.keys()[:1]:
+			browser = self.open_site(chart_name)
+			counter = 0
+			for app in browser.find_all(class_= "card no-rationale square-cover apps small"):
+				counter += 1
+				print counter
+				
+				price = unicode(app.find(class_ = 'price buy').span.string)
+				price = self.transform_price(price)
+
+				db_entry = App(
+					counter, 
+					self.get_stars(app), 
+					price, 
+					unicode(app.find(class_ = 'description')), 
+					app.find(class_ = 'title')['title'], 
+					chart_name,
+					datetime.now(),
+					self.store_name)
+
+				db.session.add(db_entry)
+
+		db.session.commit()
+
+class GermanGooglePlay(USGooglePlay):
+	def __init__(self):
+		self.url_start = 'http://ciproxy.de/browse.php?u='
+		self.store_name = 'Google Play Germany'
+
+	def get_stars(self, app):
+		stars = app.find(class_ = 'reason-set-star-rating').contents[1]['aria-label'][4:7]
+		stars = stars[0] + '.' + stars[2]
+		return float(stars)
+
+	def transform_price(self, price):
+		if price == u'Free' or price == u'None':
+			return float(0)
+		else:
+			temp = price.split(',')
+			return float(temp[0] + '.' + temp[1][:2])		
+
+	def open_site(self, chart_name):
+		browser = RoboBrowser(history=True, parser='html.parser')
+		browser.open(self.url_start + charts[chart_name])
 
 		form = browser.get_form(action='includes/process.php')
 		browser.submit_form(form)
 
-		counter = 0
+		return browser
 
-		for app in browser.find_all(class_= "card no-rationale square-cover apps small"):
-			counter += 1
-			print counter
-			price = unicode(app.find(class_ = 'price buy').span.string)
+class FrenchGooglePlay(USGooglePlay):
+	def __init__(self):
+		self.url_start = 'https://france99.com'
+		self.store_name = 'Google Play France'
+		self.transform_price = GermanGooglePlay().transform_price
 
-			if price == u'Free' or price == u'None':
-				price = float(0)
-			else:
-				temp = price.split(',')
-				price = float(temp[0] + '.' + temp[1][:2])
+	def open_site(self, chart_name):
+		browser = RoboBrowser(history=True, parser='html.parser')
+		browser.open(self.url_start)
 
-			stars = app.find(class_ = 'reason-set-star-rating').contents[1]['aria-label'][4:7]
-			stars = stars[0] + '.' + stars[2]
+		form = browser.get_form(action='https://france99.com/includes/process.php?action=update')
+		form['u'] = charts[chart_name]
+		browser.submit_form(form)
 
-			db_entry = App(
-				counter, 
-				float(stars), 
-				price, 
-				unicode(app.find(class_ = 'description')), 
-				app.find(class_ = 'title')['title'], 
-				chart_name,
-				datetime.now(),
-				'Google Play Germany')
+		return browser		
 
-			db.session.add(db_entry)
-
-	db.session.commit()
+	def get_stars(self, app):
+		stars = app.find(class_ = 'reason-set-star-rating').contents[1]['aria-label']
+		stars = stars[0] + '.' + stars[2]
+		return float(stars)
