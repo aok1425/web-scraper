@@ -7,14 +7,12 @@ from datetime import datetime
 from flask import Flask
 from flask.ext.sqlalchemy import SQLAlchemy
 import os
+from robobrowser import RoboBrowser
 
 app = Flask(__name__)
-#app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/test20.db'
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ['DATABASE_URL']
 #app.config['SQLALCHEMY_ECHO'] = True # prints interactions w the db
 db = SQLAlchemy(app)
-
-#db.create_all()
 
 charts = {
 	'Top Free in Android Apps': 'https://play.google.com/store/apps/collection/topselling_free',
@@ -62,6 +60,8 @@ def google_play():
 
 			if price == u'Free':
 				price = float(0)
+			elif price == None:
+				pass
 			else:
 				price = float(price[1:])
 
@@ -76,15 +76,14 @@ def google_play():
 				'Google Play')
 
 			db.session.add(db_entry)
-			db.session.commit()
-
-	print App.query.all()
+	
+	db.session.commit()
 
 def test():
 	db_entry = App(
 		123, 
-		4.5, 
-		4.50, 
+		3.5, 
+		None, 
 		'some description', 
 		'soem title', 
 		'chart_name',
@@ -95,3 +94,43 @@ def test():
 	db.session.commit()
 
 	print App.query.all()
+
+# could also make a decorated fn
+# or make arguments ('if german, inject this code')
+def german_google_play():
+	for chart_name in charts.keys():
+		browser = RoboBrowser(history=True, parser='html.parser')
+		browser.open('http://ciproxy.de/browse.php?u=' + charts[chart_name])
+
+		form = browser.get_form(action='includes/process.php')
+		browser.submit_form(form)
+
+		counter = 0
+
+		for app in browser.find_all(class_= "card no-rationale square-cover apps small"):
+			counter += 1
+			print counter
+			price = unicode(app.find(class_ = 'price buy').span.string)
+
+			if price == u'Free' or price == u'None':
+				price = float(0)
+			else:
+				temp = price.split(',')
+				price = float(temp[0] + '.' + temp[1][:2])
+
+			stars = app.find(class_ = 'reason-set-star-rating').contents[1]['aria-label'][4:7]
+			stars = stars[0] + '.' + stars[2]
+
+			db_entry = App(
+				counter, 
+				float(stars), 
+				price, 
+				unicode(app.find(class_ = 'description')), 
+				app.find(class_ = 'title')['title'], 
+				chart_name,
+				datetime.now(),
+				'Google Play Germany')
+
+			db.session.add(db_entry)
+
+	db.session.commit()
