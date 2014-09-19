@@ -83,7 +83,7 @@ class USGooglePlay(object):
 		return browser
 
 	def run(self):
-		for chart_name in charts.keys()[:1]:
+		for chart_name in charts.keys():
 			browser = self.open_site(chart_name)
 			counter = 0
 			for app in browser.find_all(class_= "card no-rationale square-cover apps small"):
@@ -104,6 +104,8 @@ class USGooglePlay(object):
 					self.store_name)
 
 				db.session.add(db_entry)
+
+		print 'done with', chart_name
 
 		db.session.commit()
 
